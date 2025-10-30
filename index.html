@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Workplace Audit Conductor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'brand-primary': '#0052cc',
+              'brand-secondary': '#172b4d',
+              'status-compliant': '#16a34a',
+              'status-evidence': '#f59e0b',
+              'status-noncompliant': '#dc2626',
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.28.0",
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client"
+  }
+}
+</script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import ReactDOM from 'react-dom/client';
+import { GoogleGenAI, Type } from "@google/genai";
+
+// --- START OF COMPILED CODE ---
+
+// types.ts
+var AssessmentStatus;
+(function (AssessmentStatus) {
+    AssessmentStatus["NotAssessed"] = "Not Assessed";
+    AssessmentStatus["Compliant"] = "Compliant";
+    AssessmentStatus["NeedsEvidence"] = "Needs further evidence";
+    AssessmentStatus["NonCompliant"] = "Non Compliant";
+})(AssessmentStatus || (AssessmentStatus = {}));
+var RecordStatus;
+(function (RecordStatus) {
+    RecordStatus["Compliant"] = "Compliant";
+    RecordStatus["NonCompliant"] = "Non Compliant";
+})(RecordStatus || (RecordStatus = {}));
+var AuditStatus;
+(function (AuditStatus) {
+    AuditStatus["NotYetCommenced"] = "Not Yet Commenced";
+    AuditStatus["InProgress"] = "In-progress";
+    AuditStatus["CompletedAwaitingActions"] = "Completed-Awaiting Corrective Actions";
+    AuditStatus["Finalised"] = "Finalised";
+})(AuditStatus || (AuditStatus = {}));
+
+// constants.ts
+const ASSESSMENT_STATUS_OPTIONS = Object.values(AssessmentStatus);
+const AUDIT_STATUS_OPTIONS = Object.values(AuditStatus);
+const STATUS_COLORS = {
+    [AssessmentStatus.NotAssessed]: 'bg-gray-200 text-gray-800',
+    [AssessmentStatus.Compliant]: 'bg-status-compliant text-white',
+    [AssessmentStatus.NeedsEvidence]: 'bg-status-evidence text-white',
+    [AssessmentStatus.NonCompliant]: 'bg-status-noncompliant text-white',
+    [RecordStatus.Compliant]: 'bg-status-compliant text-white',
+    [RecordStatus.NonCompliant]: 'bg-status-noncompliant text-white',
+    [AuditStatus.NotYetCommenced]: 'bg-gray-500 text-white',
+    [AuditStatus.InProgress]: 'bg-blue-500 text-white',
+    [AuditStatus.CompletedAwaitingActions]: 'bg-yellow-500 text-white',
+    [AuditStatus.Finalised]: 'bg-green-700 text-white',
+};
+
+// components/icons.tsx
+const PlusIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 4.5v15m7.5-7.5h-15" })));
+const DocumentPlusIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" })));
+const ChevronLeftIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M15.75 19.5 8.25 12l7.5-7.5" })));
+const ChevronDownIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "m19.5 8.25-7.5 7.5-7.5-7.5" })));
+const TrashIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.124-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.077-2.09.921-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" })));
+const SparklesIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" })));
+const UploadIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" })));
+const CheckCircleIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" })));
+const ExclamationCircleIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" })));
+const ClipboardListIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M10.125 2.25h-4.5c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9M10.125 2.25h.375a9 9 0 0 1 9 9v.375M10.125 2.25A3.375 3.375 0 0 1 13.5 5.625v1.5c0 .621.504 1.125 1.125 1.125h1.5a3.375 3.375 0 0 1 3.375 3.375M9 15l2.25 2.25L15 12" })));
+const ClockIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" })));
+const ExclamationTriangleIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" })));
+const CheckBadgeIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" })));
+
+// services/geminiService.ts
+const API_KEY = process.env.API_KEY;
+let ai;
+if (API_KEY) {
+    ai = new GoogleGenAI({ apiKey: API_KEY });
+} else {
+    console.warn("API_KEY environment variable not set. Gemini features will be disabled.");
+}
+
+const suggestAuditCriteria = async (topicName, requirement) => {
+    if (!ai) return [];
+    const prompt = `Generate a concise list of 5-7 audit criteria for the topic: "${topicName}".
+  ${requirement ? `These criteria should specifically address the standard or requirement: "${requirement}".` : ''}
+  The criteria should be actionable and verifiable.`;
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        criteria: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING },
+                        },
+                    },
+                },
+            },
+        });
+        const jsonText = response.text.trim();
+        const result = JSON.parse(jsonText);
+        return result.criteria || [];
+    }
+    catch (error) {
+        console.error("Error suggesting audit criteria:", error);
+        return [];
+    }
+};
+const suggestRecommendedActions = async (topicName, criteria, records) => {
+    if (!ai) return "";
+    const nonCompliantItems = records
+        .map(record => {
+        const nonCompliantAssessments = record.assessments
+            .filter(a => a.status !== 'Compliant' && a.status !== 'Not Assessed')
+            .map(a => {
+            const criterion = criteria.find(c => c.id === a.criterionId);
+            return `- Criterion: "${criterion?.text}", Status: ${a.status}`;
+        });
+        if (nonCompliantAssessments.length > 0) {
+            return `Record: "${record.name}"\n${nonCompliantAssessments.join('\n')}`;
+        }
+        return null;
+    })
+        .filter(Boolean);
+    if (nonCompliantItems.length === 0) {
+        return "All records are compliant. No corrective actions are immediately necessary. Recommend a review in the next audit cycle to ensure continued adherence.";
+    }
+    const prompt = `
+    Based on the following audit results for the topic "${topicName}", suggest a set of concise, actionable, and prioritized recommended actions.
+
+    Audit Failures:
+    ${nonCompliantItems.join('\n\n')}
+
+    Please provide the recommendations in a clear, formatted list.
+    `;
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+        });
+        return response.text;
+    }
+    catch (error) {
+        console.error("Error suggesting recommended actions:", error);
+        return "Could not generate recommendations due to an error.";
+    }
+};
+const suggestRootCauseAnalysis = async (topicName, record, criteria) => {
+    if (!ai) return "";
+    const failedCriteria = record.assessments
+        .filter(a => a.status === AssessmentStatus.NonCompliant)
+        .map(a => {
+        const criterion = criteria.find(c => c.id === a.criterionId);
+        return `- ${criterion?.text}`;
+    })
+        .join('\n');
+    if (!failedCriteria) {
+        return "No non-compliant criteria found for this record.";
+    }
+    const prompt = `
+  An audit was conducted for the topic "${topicName}".
+  The record named "${record.name}" was found to be non-compliant.
+
+  The specific criteria that failed are:
+  ${failedCriteria}
+
+  Please perform a root cause analysis. What are the likely underlying reasons for these failures?
+  Consider potential issues related to process, training, resources, or communication.
+  Provide the analysis in a clear, structured format.
+  `;
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+        });
+        return response.text;
+    }
+    catch (error) {
+        console.error("Error suggesting root cause analysis:", error);
+        return "Could not generate root cause analysis due to an error.";
+    }
+};
+
+// components/Dashboard.tsx
+const MetricCard = ({ title, value, icon, colorClass }) => (React.createElement("div", { className: `bg-white p-4 rounded-lg shadow-md flex items-center gap-4 ${colorClass}` },
+    React.createElement("div", { className: "p-3 rounded-full bg-white bg-opacity-30" }, icon),
+    React.createElement("div", null,
+        React.createElement("p", { className: "text-3xl font-bold" }, value),
+        React.createElement("p", { className: "text-sm font-medium opacity-90" }, title))));
+const Dashboard = ({ topics, onSelectTopic, setTopics, companyProfile }) => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [newTopicName, setNewTopicName] = useState('');
+    const [newTopicRequirement, setNewTopicRequirement] = useState('');
+    const [criteria, setCriteria] = useState([{ text: '', isAllowableError: false }]);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [selectedDivision, setSelectedDivision] = useState('All');
+    const { metrics, getAuditCountForTopic } = useMemo(() => {
+        const allAudits = topics.flatMap(topic => topic.audits);
+        const filteredAudits = selectedDivision === 'All'
+            ? allAudits
+            : allAudits.filter(audit => audit.division === selectedDivision);
+        const calculatedMetrics = {
+            total: filteredAudits.length,
+            inProgress: filteredAudits.filter(a => a.status === AuditStatus.InProgress).length,
+            awaitingActions: filteredAudits.filter(a => a.status === AuditStatus.CompletedAwaitingActions).length,
+            finalised: filteredAudits.filter(a => a.status === AuditStatus.Finalised).length,
+        };
+        const countFn = (topic) => {
+            if (selectedDivision === 'All') {
+                return topic.audits.length;
+            }
+            return topic.audits.filter(audit => audit.division === selectedDivision).length;
+        };
+        return { metrics: calculatedMetrics, getAuditCountForTopic: countFn };
+    }, [topics, selectedDivision]);
+    const handleAddCriterion = () => {
+        setCriteria([...criteria, { text: '', isAllowableError: false }]);
+    };
+    const handleCriterionChange = (index, field, value) => {
+        const newCriteria = [...criteria];
+        const criterion = { ...newCriteria[index], [field]: value };
+        newCriteria[index] = criterion;
+        setCriteria(newCriteria);
+    };
+    const handleRemoveCriterion = (index) => {
+        const newCriteria = criteria.filter((_, i) => i !== index);
+        setCriteria(newCriteria);
+    };
+    const handleCreateTopic = () => {
+        if (newTopicName.trim() === '')
+            return;
+        const newTopic = {
+            id: Date.now().toString(),
+            name: newTopicName,
+            requirement: newTopicRequirement.trim() || undefined,
+            criteria: criteria.filter(c => c.text?.trim()).map((c, i) => ({ ...c, id: `c-${Date.now()}-${i}` })),
+            audits: [],
+        };
+        setTopics([...topics, newTopic]);
+        setIsModalOpen(false);
+        setNewTopicName('');
+        setNewTopicRequirement('');
+        setCriteria([{ text: '', isAllowableError: false }]);
+    };
+    const handleSuggestCriteria = async () => {
+        if (!newTopicName)
+            return;
+        setIsGenerating(true);
+        const suggestions = await suggestAuditCriteria(newTopicName, newTopicRequirement);
+        if (suggestions.length > 0) {
+            setCriteria(suggestions.map(text => ({ text, isAllowableError: false })));
+        }
+        setIsGenerating(false);
+    };
+    return (React.createElement("div", { className: "space-y-8" },
+        React.createElement("div", null,
+            React.createElement("h2", { className: "text-2xl font-bold text-brand-secondary mb-4" }, "Overall Status"),
+            React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" },
+                React.createElement(MetricCard, { title: "Total Audits", value: metrics.total, icon: React.createElement(ClipboardListIcon, { className: "w-7 h-7" }), colorClass: "bg-blue-500 text-white" }),
+                React.createElement(MetricCard, { title: "In Progress", value: metrics.inProgress, icon: React.createElement(ClockIcon, { className: "w-7 h-7" }), colorClass: "bg-indigo-500 text-white" }),
+                React.createElement(MetricCard, { title: "Awaiting Actions", value: metrics.awaitingActions, icon: React.createElement(ExclamationTriangleIcon, { className: "w-7 h-7" }), colorClass: "bg-yellow-500 text-white" }),
+                React.createElement(MetricCard, { title: "Finalised", value: metrics.finalised, icon: React.createElement(CheckBadgeIcon, { className: "w-7 h-7" }), colorClass: "bg-green-600 text-white" }))),
+        React.createElement("div", null,
+            React.createElement("div", { className: "flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6" },
+                React.createElement("div", { className: "flex-1" },
+                    React.createElement("h2", { className: "text-3xl font-bold text-brand-secondary" }, "Audit Topics")),
+                React.createElement("div", { className: "flex items-center gap-4" },
+                    React.createElement("select", { value: selectedDivision, onChange: (e) => setSelectedDivision(e.target.value), className: "p-2 border rounded-lg bg-white" },
+                        React.createElement("option", { value: "All" }, "All Divisions"),
+                        companyProfile.divisions.map(div => React.createElement("option", { key: div, value: div }, div))),
+                    React.createElement("button", { onClick: () => setIsModalOpen(true), className: "bg-brand-primary text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors" },
+                        React.createElement(PlusIcon, null),
+                        React.createElement("span", { className: "hidden sm:inline" }, "New Topic")))),
+            topics.length === 0 ? (React.createElement("div", { className: "text-center py-20 bg-white rounded-lg shadow" },
+                React.createElement(DocumentPlusIcon, { className: "mx-auto h-16 w-16 text-slate-400" }),
+                React.createElement("h3", { className: "mt-2 text-xl font-semibold text-slate-900" }, "No audit topics found"),
+                React.createElement("p", { className: "mt-1 text-slate-500" }, "Get started by creating a new audit topic."))) : (React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" }, topics.map((topic) => (React.createElement("div", { key: topic.id, onClick: () => onSelectTopic(topic.id), className: "bg-white p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer flex flex-col justify-between" },
+                React.createElement("div", null,
+                    React.createElement("h3", { className: "text-xl font-bold text-brand-secondary mb-2" }, topic.name),
+                    topic.requirement && (React.createElement("p", { className: "text-xs font-semibold text-slate-500 bg-slate-100 rounded-full px-2 py-1 inline-block mb-3" }, topic.requirement)),
+                    React.createElement("p", { className: "text-slate-600 mb-4" },
+                        topic.criteria.length,
+                        " criteria")),
+                React.createElement("div", { className: "flex justify-between items-center text-sm mt-auto" },
+                    React.createElement("span", { className: "text-slate-500" },
+                        getAuditCountForTopic(topic),
+                        " audits conducted"),
+                    React.createElement("span", { className: "text-brand-primary font-semibold" }, "View History \u2192")))))))),
+        isModalOpen && (React.createElement("div", { className: "fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4" },
+            React.createElement("div", { className: "bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" },
+                React.createElement("h3", { className: "text-2xl font-bold mb-4" }, "Create New Audit Topic"),
+                React.createElement("div", { className: "space-y-4" },
+                    React.createElement("input", { type: "text", value: newTopicName, onChange: (e) => setNewTopicName(e.target.value), placeholder: "Topic Name (e.g., 'Workplace Safety')", className: "w-full p-2 border rounded-lg" }),
+                    React.createElement("input", { type: "text", value: newTopicRequirement, onChange: (e) => setNewTopicRequirement(e.target.value), placeholder: "Optional: Standard / Requirement (e.g., ISO 9001: Clause 7.2)", className: "w-full p-2 border rounded-lg" }),
+                    React.createElement("div", { className: "border-t pt-4" },
+                        React.createElement("div", { className: "flex justify-between items-center mb-2" },
+                            React.createElement("h4", { className: "font-semibold" }, "Audit Criteria"),
+                            React.createElement("button", { onClick: handleSuggestCriteria, disabled: isGenerating || !newTopicName, className: "flex items-center gap-1 text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 disabled:bg-slate-200 disabled:text-slate-500 transition-colors" },
+                                React.createElement(SparklesIcon, { className: "w-4 h-4" }),
+                                isGenerating ? 'Generating...' : 'Suggest with AI')),
+                        React.createElement("div", { className: "space-y-2" }, criteria.map((crit, index) => (React.createElement("div", { key: index, className: "flex items-center gap-2" },
+                            React.createElement("input", { type: "text", value: crit.text || '', onChange: (e) => handleCriterionChange(index, 'text', e.target.value), placeholder: `Criterion #${index + 1}`, className: "flex-grow p-2 border rounded-lg" }),
+                            React.createElement("label", { className: "flex items-center gap-1 text-sm text-slate-600" },
+                                React.createElement("input", { type: "checkbox", checked: !!crit.isAllowableError, onChange: (e) => handleCriterionChange(index, 'isAllowableError', e.target.checked), className: "rounded" }),
+                                "Allowable Error"),
+                            React.createElement("button", { onClick: () => handleRemoveCriterion(index), className: "text-red-500 hover:text-red-700 p-1" },
+                                React.createElement(TrashIcon, { className: "w-5 h-5" })))))),
+                        React.createElement("button", { onClick: handleAddCriterion, className: "mt-2 text-brand-primary font-semibold text-sm flex items-center gap-1" },
+                            React.createElement(PlusIcon, { className: "w-4 h-4" }),
+                            " Add Criterion"))),
+                React.createElement("div", { className: "flex justify-end gap-4 mt-6" },
+                    React.createElement("button", { onClick: () => setIsModalOpen(false), className: "bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300" }, "Cancel"),
+                    React.createElement("button", { onClick: handleCreateTopic, className: "bg-brand-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700" }, "Create Topic")))))));
+};
+
+// components/TopicDetail.tsx
+const TopicDetail = ({ topic, onSelectAudit, onBack, setTopics, allTopics, companyProfile, user }) => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [newAuditor, setNewAuditor] = useState('');
+    const [selectedDivision, setSelectedDivision] = useState(companyProfile.divisions[0] || '');
+    useEffect(() => {
+        if (isModalOpen && user) {
+            setNewAuditor(user.name);
+        }
+    }, [isModalOpen, user]);
+    const handleCreateAudit = () => {
+        if (newAuditor.trim() === '')
+            return;
+        const newAudit = {
+            id: Date.now().toString(),
+            auditor: newAuditor,
+            status: AuditStatus.NotYetCommenced,
+            records: [],
+            recommendedActions: '',
+            date: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD
+            division: selectedDivision,
+        };
+        const updatedTopics = allTopics.map(t => {
+            if (t.id === topic.id) {
+                return { ...t, audits: [newAudit, ...t.audits] }; // Add to the beginning
+            }
+            return t;
+        });
+        setTopics(updatedTopics);
+        setIsModalOpen(false);
+        setNewAuditor('');
+        setSelectedDivision(companyProfile.divisions[0] || '');
+    };
+    const formatDate = (dateString) => {
+        if (!dateString || !dateString.includes('-'))
+            return dateString;
+        try {
+            const [year, month, day] = dateString.split('-');
+            return `${day}/${month}/${year}`;
+        }
+        catch (e) {
+            return dateString;
+        }
+    };
+    return (React.createElement("div", null,
+        React.createElement("button", { onClick: onBack, className: "flex items-center gap-2 text-brand-primary font-semibold mb-6 hover:underline" },
+            React.createElement(ChevronLeftIcon, { className: "w-5 h-5" }),
+            "Back to Dashboard"),
+        React.createElement("div", { className: "bg-white p-6 rounded-lg shadow-md mb-6" },
+            React.createElement("div", { className: "flex flex-col sm:flex-row justify-between sm:items-center gap-4" },
+                React.createElement("div", null,
+                    React.createElement("h2", { className: "text-3xl font-bold text-brand-secondary" }, topic.name),
+                    topic.requirement && (React.createElement("p", { className: "text-sm font-semibold text-slate-500 bg-slate-100 rounded-full px-3 py-1 inline-block mt-2" }, topic.requirement))),
+                React.createElement("button", { onClick: () => setIsModalOpen(true), className: "bg-brand-primary text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors" },
+                    React.createElement(PlusIcon, null),
+                    "New Audit")),
+            React.createElement("div", { className: "mt-4 pt-4 border-t" },
+                React.createElement("h3", { className: "font-semibold text-lg mb-2" }, "Audit Criteria"),
+                React.createElement("ul", { className: "list-disc list-inside space-y-1 text-slate-700" }, topic.criteria.map(c => (React.createElement("li", { key: c.id }, c.text)))))),
+        React.createElement("div", null,
+            React.createElement("h3", { className: "text-2xl font-bold text-brand-secondary mb-4" }, "Audit History"),
+            topic.audits.length === 0 ? (React.createElement("div", { className: "text-center py-16 bg-white rounded-lg shadow" },
+                React.createElement("p", { className: "text-slate-500" }, "No audits have been conducted for this topic yet."))) : (React.createElement("div", { className: "bg-white rounded-lg shadow overflow-hidden" },
+                React.createElement("table", { className: "min-w-full divide-y divide-gray-200" },
+                    React.createElement("thead", { className: "bg-gray-50" },
+                        React.createElement("tr", null,
+                            React.createElement("th", { scope: "col", className: "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" }, "Date"),
+                            React.createElement("th", { scope: "col", className: "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" }, "Auditor"),
+                            React.createElement("th", { scope: "col", className: "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" }, "Division"),
+                            React.createElement("th", { scope: "col", className: "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" }, "Status"),
+                            React.createElement("th", { scope: "col", className: "relative px-6 py-3" },
+                                React.createElement("span", { className: "sr-only" }, "View")))),
+                    React.createElement("tbody", { className: "bg-white divide-y divide-gray-200" }, topic.audits.map(audit => (React.createElement("tr", { key: audit.id, className: "hover:bg-gray-50" },
+                        React.createElement("td", { className: "px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" }, formatDate(audit.date)),
+                        React.createElement("td", { className: "px-6 py-4 whitespace-nowrap text-sm text-gray-500" }, audit.auditor),
+                        React.createElement("td", { className: "px-6 py-4 whitespace-nowrap text-sm text-gray-500" }, audit.division),
+                        React.createElement("td", { className: "px-6 py-4 whitespace-nowrap" },
+                            React.createElement("span", { className: `px-3 py-1 text-xs font-semibold rounded-full ${STATUS_COLORS[audit.status]}` }, audit.status)),
+                        React.createElement("td", { className: "px-6 py-4 whitespace-nowrap text-right text-sm font-medium" },
+                            React.createElement("button", { onClick: () => onSelectAudit(audit.id), className: "text-brand-primary hover:text-blue-700 font-semibold" }, "View Audit")))))))))),
+        isModalOpen && (React.createElement("div", { className: "fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4" },
+            React.createElement("div", { className: "bg-white rounded-lg shadow-xl p-6 w-full max-w-md" },
+                React.createElement("h3", { className: "text-2xl font-bold mb-4" },
+                    "Start New Audit for \"",
+                    topic.name,
+                    "\""),
+                React.createElement("div", { className: "space-y-4" },
+                    React.createElement("input", { type: "text", value: newAuditor, onChange: (e) => setNewAuditor(e.target.value), placeholder: "Auditor's Name", className: "w-full p-2 border rounded-lg" }),
+                    React.createElement("select", { value: selectedDivision, onChange: (e) => setSelectedDivision(e.target.value), className: "w-full p-2 border rounded-lg bg-white" }, companyProfile.divisions.map(div => React.createElement("option", { key: div, value: div }, div)))),
+                React.createElement("div", { className: "flex justify-end gap-4 mt-6" },
+                    React.createElement("button", { onClick: () => setIsModalOpen(false), className: "bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300" }, "Cancel"),
+                    React.createElement("button", { onClick: handleCreateAudit, className: "bg-brand-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700" }, "Create Audit")))))));
+};
+
+// components/AuditView.tsx
+const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+};
+const AuditView = ({ topic, audit, onBack, onUpdateAudit, user }) => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [newRecordName, setNewRecordName] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatingRootCauseIds, setGeneratingRootCauseIds] = useState([]);
+    const [expandedRecordId, setExpandedRecordId] = useState(null);
+    const [selectedRecordIds, setSelectedRecordIds] = useState([]);
+    const [isBulkActionsOpen, setIsBulkActionsOpen] = useState(false);
+    const calculateRecordStatus = useCallback((assessments, criteria) => {
+        for (const assessment of assessments) {
+            if (assessment.status === AssessmentStatus.NonCompliant) {
+                const criterion = criteria.find(c => c.id === assessment.criterionId);
+                if (criterion && !criterion.isAllowableError) {
+                    return RecordStatus.NonCompliant;
+                }
+            }
+        }
+        return RecordStatus.Compliant;
+    }, []);
+    const handleToggleSelectRecord = (recordId) => {
+        setSelectedRecordIds(prev => prev.includes(recordId)
+            ? prev.filter(id => id !== recordId)
+            : [...prev, recordId]);
+    };
+    const handleToggleSelectAll = () => {
+        if (selectedRecordIds.length === audit.records.length) {
+            setSelectedRecordIds([]);
+        }
+        else {
+            setSelectedRecordIds(audit.records.map(r => r.id));
+        }
+    };
+    const handleAddRecord = () => {
+        if (newRecordName.trim() === '')
+            return;
+        const newRecord = {
+            id: Date.now().toString(),
+            name: newRecordName,
+            assessments: topic.criteria.map(c => ({ criterionId: c.id, status: AssessmentStatus.NotAssessed })),
+            evidenceFiles: [],
+            overallStatus: RecordStatus.Compliant,
+            rootCause: '',
+            lastUpdatedBy: user?.name,
+        };
+        const updatedAudit = { ...audit, records: [...audit.records, newRecord] };
+        onUpdateAudit(updatedAudit);
+        setIsModalOpen(false);
+        setNewRecordName('');
+        setExpandedRecordId(newRecord.id); // Expand the new record
+    };
+    const handleAssessmentChange = (recordId, criterionId, status) => {
+        const updatedRecords = audit.records.map(record => {
+            if (record.id === recordId) {
+                const newAssessments = record.assessments.map(ass => ass.criterionId === criterionId ? { ...ass, status } : ass);
+                const newOverallStatus = calculateRecordStatus(newAssessments, topic.criteria);
+                return { ...record, assessments: newAssessments, overallStatus: newOverallStatus, lastUpdatedBy: user?.name };
+            }
+            return record;
+        });
+        onUpdateAudit({ ...audit, records: updatedRecords });
+    };
+    const handleFileUpload = async (recordId, files) => {
+        if (!files)
+            return;
+        const filePromises = Array.from(files).map(async (file) => {
+            const content = await fileToBase64(file);
+            return { name: file.name, type: file.type, content };
+        });
+        const newFiles = await Promise.all(filePromises);
+        const updatedRecords = audit.records.map(record => {
+            if (record.id === recordId) {
+                return { ...record, evidenceFiles: [...record.evidenceFiles, ...newFiles], lastUpdatedBy: user?.name };
+            }
+            return record;
+        });
+        onUpdateAudit({ ...audit, records: updatedRecords });
+    };
+    const handleRemoveFile = (recordId, fileName) => {
+        const updatedRecords = audit.records.map(record => {
+            if (record.id === recordId) {
+                return { ...record, evidenceFiles: record.evidenceFiles.filter(f => f.name !== fileName), lastUpdatedBy: user?.name };
+            }
+            return record;
+        });
+        onUpdateAudit({ ...audit, records: updatedRecords });
+    };
+    const handleAuditStatusChange = (status) => {
+        onUpdateAudit({ ...audit, status });
+    };
+    const handleRecommendedActionsChange = (text) => {
+        onUpdateAudit({ ...audit, recommendedActions: text });
+    };
+    const handleRootCauseChange = (recordId, text) => {
+        const updatedRecords = audit.records.map(record => {
+            if (record.id === recordId) {
+                return { ...record, rootCause: text, lastUpdatedBy: user?.name };
+            }
+            return record;
+        });
+        onUpdateAudit({ ...audit, records: updatedRecords });
+    };
+    const handleGenerateRecommendations = async () => {
+        setIsGenerating(true);
+        const recommendations = await suggestRecommendedActions(topic.name, topic.criteria, audit.records);
+        handleRecommendedActionsChange(recommendations);
+        setIsGenerating(false);
+    };
+    const handleGenerateRootCause = async (record) => {
+        setGeneratingRootCauseIds(prev => [...prev, record.id]);
+        const analysis = await suggestRootCauseAnalysis(topic.name, record, topic.criteria);
+        handleRootCauseChange(record.id, analysis);
+        setGeneratingRootCauseIds(prev => prev.filter(id => id !== record.id));
+    };
+    const handleBulkUpdateStatus = (status) => {
+        const updatedRecords = audit.records.map(record => {
+            if (selectedRecordIds.includes(record.id)) {
+                let newAssessments = record.assessments;
+                if (status === RecordStatus.Compliant) {
+                    newAssessments = record.assessments.map(a => ({ ...a, status: AssessmentStatus.Compliant }));
+                }
+                else { // NonCompliant
+                    const firstNonAllowableCriterion = topic.criteria.find(c => !c.isAllowableError);
+                    if (firstNonAllowableCriterion) {
+                        newAssessments = record.assessments.map(a => a.criterionId === firstNonAllowableCriterion.id
+                            ? { ...a, status: AssessmentStatus.NonCompliant }
+                            : a);
+                    }
+                }
+                const newOverallStatus = calculateRecordStatus(newAssessments, topic.criteria);
+                return { ...record, assessments: newAssessments, overallStatus: newOverallStatus, lastUpdatedBy: user?.name };
+            }
+            return record;
+        });
+        onUpdateAudit({ ...audit, records: updatedRecords });
+        setSelectedRecordIds([]);
+        setIsBulkActionsOpen(false);
+    };
+    const handleBulkSuggestRootCause = async () => {
+        const nonCompliantSelectedRecords = audit.records.filter(record => selectedRecordIds.includes(record.id) && record.overallStatus === RecordStatus.NonCompliant);
+        if (nonCompliantSelectedRecords.length === 0) {
+            setIsBulkActionsOpen(false);
+            return;
+        }
+        ;
+        setGeneratingRootCauseIds(prev => [...prev, ...nonCompliantSelectedRecords.map(r => r.id)]);
+        setIsBulkActionsOpen(false);
+        const analyses = await Promise.all(nonCompliantSelectedRecords.map(record => suggestRootCauseAnalysis(topic.name, record, topic.criteria)));
+        const updatedRecords = audit.records.map(record => {
+            const recordIndex = nonCompliantSelectedRecords.findIndex(r => r.id === record.id);
+            if (recordIndex !== -1) {
+                return { ...record, rootCause: analyses[recordIndex], lastUpdatedBy: user?.name };
+            }
+            return record;
+        });
+        onUpdateAudit({ ...audit, records: updatedRecords });
+        setGeneratingRootCauseIds(prev => prev.filter(id => !nonCompliantSelectedRecords.some(r => r.id === id)));
+        setSelectedRecordIds([]);
+    };
+    const auditSummary = useMemo(() => {
+        const compliantRecords = audit.records.filter(r => r.overallStatus === RecordStatus.Compliant).length;
+        const nonCompliantRecords = audit.records.length - compliantRecords;
+        return { compliantRecords, nonCompliantRecords };
+    }, [audit.records]);
+    const isFinalized = audit.status === AuditStatus.Finalised;
+    const canBulkSuggestRootCause = useMemo(() => {
+        return audit.records.some(r => selectedRecordIds.includes(r.id) && r.overallStatus === RecordStatus.NonCompliant);
+    }, [selectedRecordIds, audit.records]);
+    const formatDate = (dateString) => {
+        if (!dateString || !dateString.includes('-'))
+            return dateString;
+        try {
+            const [year, month, day] = dateString.split('-');
+            return `${day}/${month}/${year}`;
+        }
+        catch (e) {
+            return dateString;
+        }
+    };
+    return (React.createElement("div", null,
+        React.createElement("button", { onClick: onBack, className: "flex items-center gap-2 text-brand-primary font-semibold mb-6 hover:underline" },
+            React.createElement(ChevronLeftIcon, { className: "w-5 h-5" }),
+            "Back to Topic Details"),
+        React.createElement("div", { className: "bg-white p-6 rounded-lg shadow-md mb-6" },
+            React.createElement("div", { className: "flex flex-col md:flex-row justify-between md:items-center gap-4" },
+                React.createElement("div", null,
+                    React.createElement("h2", { className: "text-3xl font-bold text-brand-secondary" }, topic.name),
+                    React.createElement("p", { className: "text-slate-600 mt-1" },
+                        "Auditor: ",
+                        React.createElement("span", { className: "font-semibold" }, audit.auditor),
+                        " | Date: ",
+                        formatDate(audit.date))),
+                React.createElement("div", { className: "flex items-center gap-2" },
+                    React.createElement("span", { className: "font-semibold" }, "Status:"),
+                    React.createElement("select", { value: audit.status, onChange: (e) => handleAuditStatusChange(e.target.value), disabled: isFinalized, className: "p-2 border rounded-lg bg-gray-50 disabled:bg-gray-200" }, AUDIT_STATUS_OPTIONS.map((status) => (React.createElement("option", { key: status, value: status }, status))))))),
+        React.createElement("div", { className: "bg-white p-6 rounded-lg shadow-md mb-6" },
+            React.createElement("div", { className: "flex justify-between items-center mb-4" },
+                React.createElement("div", { className: "flex items-center gap-4" },
+                    React.createElement("input", { type: "checkbox", className: "h-5 w-5 rounded border-gray-300 text-brand-primary focus:ring-brand-primary disabled:bg-gray-200", onChange: handleToggleSelectAll, checked: audit.records.length > 0 && selectedRecordIds.length === audit.records.length, disabled: isFinalized || audit.records.length === 0 }),
+                    React.createElement("h3", { className: "text-xl font-bold text-brand-secondary" },
+                        "Audited Records (",
+                        audit.records.length,
+                        ")")),
+                React.createElement("div", { className: "flex items-center gap-2" },
+                    selectedRecordIds.length > 0 && !isFinalized && (React.createElement("div", { className: "relative" },
+                        React.createElement("button", { onClick: () => setIsBulkActionsOpen(!isBulkActionsOpen), className: "bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg flex items-center gap-2 hover:bg-slate-300 transition-colors" },
+                            "Bulk Actions (",
+                            selectedRecordIds.length,
+                            ")",
+                            React.createElement(ChevronDownIcon, { className: "w-5 h-5" })),
+                        isBulkActionsOpen && (React.createElement("div", { className: "absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-10 border" },
+                            React.createElement("button", { onClick: () => handleBulkUpdateStatus(RecordStatus.Compliant), className: "block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" }, "Mark as Compliant"),
+                            React.createElement("button", { onClick: () => handleBulkUpdateStatus(RecordStatus.NonCompliant), className: "block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" }, "Mark as Non-Compliant"),
+                            React.createElement("button", { onClick: handleBulkSuggestRootCause, disabled: !canBulkSuggestRootCause, className: "block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:text-gray-400 disabled:bg-gray-50" }, "Suggest Root Cause"))))),
+                    !isFinalized && (React.createElement("button", { onClick: () => setIsModalOpen(true), className: "bg-brand-primary text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors" },
+                        React.createElement(PlusIcon, { className: "w-5 h-5" }),
+                        "Add Record")))),
+            React.createElement("div", { className: "space-y-4" }, audit.records.map((record) => (React.createElement("div", { key: record.id, className: "border rounded-lg" },
+                React.createElement("div", { className: "flex items-center p-4" },
+                    React.createElement("input", { type: "checkbox", className: "h-5 w-5 rounded border-gray-300 text-brand-primary focus:ring-brand-primary mr-4 disabled:bg-gray-200", checked: selectedRecordIds.includes(record.id), onChange: () => handleToggleSelectRecord(record.id), disabled: isFinalized }),
+                    React.createElement("div", { className: "flex-grow flex items-center justify-between cursor-pointer hover:bg-slate-50", onClick: () => setExpandedRecordId(expandedRecordId === record.id ? null : record.id) },
+                        React.createElement("div", { className: "flex items-center gap-3" },
+                            record.overallStatus === RecordStatus.Compliant ?
+                                React.createElement(CheckCircleIcon, { className: "w-6 h-6 text-status-compliant" }) :
+                                React.createElement(ExclamationCircleIcon, { className: "w-6 h-6 text-status-noncompliant" }),
+                            React.createElement("span", { className: "font-semibold" }, record.name)),
+                        React.createElement("div", { className: "flex items-center gap-4" },
+                            React.createElement("span", { className: `px-3 py-1 text-sm font-semibold rounded-full ${STATUS_COLORS[record.overallStatus]}` }, record.overallStatus),
+                            React.createElement(ChevronLeftIcon, { className: `w-5 h-5 transition-transform ${expandedRecordId === record.id ? '-rotate-90' : 'rotate-0'}` })))),
+                expandedRecordId === record.id && (React.createElement("div", { className: "p-4 border-t bg-slate-50" },
+                    React.createElement("h4", { className: "font-semibold mb-2" }, "Criteria Assessment"),
+                    React.createElement("div", { className: "space-y-3 mb-4" },
+                        topic.criteria.map(criterion => {
+                            const assessment = record.assessments.find(a => a.criterionId === criterion.id);
+                            return (React.createElement("div", { key: criterion.id, className: "grid grid-cols-1 md:grid-cols-3 gap-4 items-center" },
+                                React.createElement("p", { className: "md:col-span-2 text-slate-700" },
+                                    criterion.text,
+                                    !criterion.isAllowableError && React.createElement("span", { className: "text-red-500 ml-1" }, "*")),
+                                React.createElement("select", { value: assessment?.status || AssessmentStatus.NotAssessed, onChange: (e) => handleAssessmentChange(record.id, criterion.id, e.target.value), disabled: isFinalized, className: "p-2 border rounded-lg w-full disabled:bg-gray-200" }, ASSESSMENT_STATUS_OPTIONS.map((opt) => React.createElement("option", { key: opt, value: opt }, opt)))));
+                        }),
+                        React.createElement("p", { className: "text-xs text-slate-500" },
+                            React.createElement("span", { className: "text-red-500" }, "*"),
+                            " Non-compliance is a non-allowable error.")),
+                    record.overallStatus === RecordStatus.NonCompliant && (React.createElement("div", { className: "mt-6 pt-4 border-t border-slate-200" },
+                        React.createElement("div", { className: "flex justify-between items-center mb-2" },
+                            React.createElement("h4", { className: "font-semibold" }, "Root Cause Analysis"),
+                            !isFinalized && (React.createElement("button", { onClick: () => handleGenerateRootCause(record), disabled: generatingRootCauseIds.includes(record.id), className: "flex items-center gap-1 text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 disabled:bg-slate-200 disabled:text-slate-500 transition-colors" },
+                                React.createElement(SparklesIcon, { className: "w-4 h-4" }),
+                                generatingRootCauseIds.includes(record.id) ? 'Generating...' : 'Suggest with AI'))),
+                        React.createElement("textarea", { rows: 5, value: record.rootCause || '', onChange: (e) => handleRootCauseChange(record.id, e.target.value), disabled: isFinalized, placeholder: "Enter root cause analysis...", className: "w-full p-2 border rounded-lg disabled:bg-gray-100" }))),
+                    React.createElement("div", { className: "mt-6 pt-4 border-t border-slate-200" },
+                        React.createElement("h4", { className: "font-semibold mb-2" }, "Supporting Evidence"),
+                        React.createElement("div", { className: "space-y-2" }, record.evidenceFiles.map(file => (React.createElement("div", { key: file.name, className: "flex justify-between items-center bg-white p-2 border rounded-md" },
+                            React.createElement("span", { className: "text-sm text-slate-800" }, file.name),
+                            !isFinalized && React.createElement("button", { onClick: () => handleRemoveFile(record.id, file.name), className: "text-red-500 hover:text-red-700" },
+                                React.createElement(TrashIcon, { className: "w-4 h-4" })))))),
+                        !isFinalized && (React.createElement("div", { className: "mt-4" },
+                            React.createElement("label", { className: "w-full flex justify-center items-center gap-2 px-4 py-6 bg-white text-blue-500 rounded-lg shadow border border-blue-200 cursor-pointer hover:bg-blue-50" },
+                                React.createElement(UploadIcon, { className: "w-6 h-6" }),
+                                React.createElement("span", { className: "font-medium" }, "Upload Files"),
+                                React.createElement("input", { type: 'file', multiple: true, className: "hidden", onChange: (e) => handleFileUpload(record.id, e.target.files) }))))),
+                    record.lastUpdatedBy && (React.createElement("div", { className: "mt-4 pt-4 border-t border-slate-200 text-right" },
+                        React.createElement("p", { className: "text-xs text-slate-500 italic" },
+                            "Last updated by: ",
+                            record.lastUpdatedBy)))))))))),
+        React.createElement("div", { className: "bg-white p-6 rounded-lg shadow-md" },
+            React.createElement("h3", { className: "text-xl font-bold text-brand-secondary mb-4" }, "Audit Summary & Actions"),
+            React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-center" },
+                React.createElement("div", { className: "bg-slate-100 p-4 rounded-lg" },
+                    React.createElement("p", { className: "text-2xl font-bold" }, audit.records.length),
+                    React.createElement("p", { className: "text-slate-600" }, "Total Records")),
+                React.createElement("div", { className: "bg-green-100 p-4 rounded-lg" },
+                    React.createElement("p", { className: "text-2xl font-bold text-green-800" }, auditSummary.compliantRecords),
+                    React.createElement("p", { className: "text-green-700" }, "Compliant")),
+                React.createElement("div", { className: "bg-red-100 p-4 rounded-lg" },
+                    React.createElement("p", { className: "text-2xl font-bold text-red-800" }, auditSummary.nonCompliantRecords),
+                    React.createElement("p", { className: "text-red-700" }, "Non-Compliant"))),
+            React.createElement("div", null,
+                React.createElement("div", { className: "flex justify-between items-center mb-2" },
+                    React.createElement("label", { htmlFor: "recommendations", className: "font-semibold" }, "Recommended Actions"),
+                    !isFinalized && (React.createElement("button", { onClick: handleGenerateRecommendations, disabled: isGenerating, className: "flex items-center gap-1 text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200 disabled:bg-slate-200 disabled:text-slate-500 transition-colors" },
+                        React.createElement(SparklesIcon, { className: "w-4 h-4" }),
+                        isGenerating ? 'Generating...' : 'Suggest with AI'))),
+                React.createElement("textarea", { id: "recommendations", rows: 8, value: audit.recommendedActions, onChange: (e) => handleRecommendedActionsChange(e.target.value), disabled: isFinalized, placeholder: "Enter recommended actions or generate them using AI...", className: "w-full p-2 border rounded-lg disabled:bg-gray-100" }))),
+        isModalOpen && (React.createElement("div", { className: "fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4" },
+            React.createElement("div", { className: "bg-white rounded-lg shadow-xl p-6 w-full max-w-md" },
+                React.createElement("h3", { className: "text-2xl font-bold mb-4" }, "Add Record to Audit"),
+                React.createElement("div", { className: "space-y-4" },
+                    React.createElement("input", { type: "text", value: newRecordName, onChange: (e) => setNewRecordName(e.target.value), placeholder: "Record Name or ID (e.g., 'Employee #123')", className: "w-full p-2 border rounded-lg" })),
+                React.createElement("div", { className: "flex justify-end gap-4 mt-6" },
+                    React.createElement("button", { onClick: () => setIsModalOpen(false), className: "bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300" }, "Cancel"),
+                    React.createElement("button", { onClick: handleAddRecord, className: "bg-brand-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700" }, "Add Record")))))));
+};
+
+// App.tsx
+const AuditConductor = () => {
+    const [user, setUser] = useState(null);
+    const [companyProfile, setCompanyProfile] = useState({
+        name: 'FunctionCo',
+        logo: null,
+        divisions: ['Head Office', 'Manufacturing', 'Sales', 'Logistics'],
+    });
+    const [topics, setTopics] = useState([]);
+    const [selectedTopicId, setSelectedTopicId] = useState(null);
+    const [selectedAuditId, setSelectedAuditId] = useState(null);
+    const signInContainerRef = useRef(null);
+    const handleSignIn = useCallback((response) => {
+        try {
+            const credential = response.credential;
+            const payload = JSON.parse(atob(credential.split('.')[1]));
+            setUser({
+                name: payload.name,
+                email: payload.email,
+                picture: payload.picture,
+            });
+        }
+        catch (error) {
+            console.error("Error decoding JWT:", error);
+        }
+    }, []);
+    const handleSignOut = () => {
+        if (window.google) {
+            window.google.accounts.id.disableAutoSelect();
+        }
+        setUser(null);
+    };
+    useEffect(() => {
+        if (window.google) {
+            window.google.accounts.id.initialize({
+                client_id: '409975478785-66jqsb68qnr62bvsas6fmcm43n64feid.apps.googleusercontent.com',
+                callback: handleSignIn,
+            });
+            if (signInContainerRef.current) {
+                window.google.accounts.id.renderButton(signInContainerRef.current, { theme: 'outline', size: 'large', text: 'signin_with', width: '300' });
+            }
+        }
+    }, [handleSignIn]);
+    const handleSetTopics = useCallback((newTopics) => {
+        setTopics(newTopics);
+    }, []);
+    const handleSelectTopic = (topicId) => {
+        setSelectedTopicId(topicId);
+        setSelectedAuditId(null);
+    };
+    const handleSelectAudit = (auditId) => {
+        setSelectedAuditId(auditId);
+    };
+    const handleBackToDashboard = () => {
+        setSelectedTopicId(null);
+        setSelectedAuditId(null);
+    };
+    const handleBackToTopicDetail = () => {
+        setSelectedAuditId(null);
+    };
+    const handleUpdateAudit = (updatedAudit) => {
+        const newTopics = topics.map(topic => {
+            if (topic.id === selectedTopicId) {
+                return {
+                    ...topic,
+                    audits: topic.audits.map(audit => audit.id === updatedAudit.id ? updatedAudit : audit),
+                };
+            }
+            return topic;
+        });
+        setTopics(newTopics);
+    };
+    const selectedTopic = topics.find(t => t.id === selectedTopicId);
+    const selectedAudit = selectedTopic?.audits.find(a => a.id === selectedAuditId);
+    const renderContent = () => {
+        if (selectedTopic && selectedAudit) {
+            return (React.createElement(AuditView, { topic: selectedTopic, audit: selectedAudit, onBack: handleBackToTopicDetail, onUpdateAudit: handleUpdateAudit, user: user }));
+        }
+        if (selectedTopic) {
+            return (React.createElement(TopicDetail, { topic: selectedTopic, onSelectAudit: handleSelectAudit, onBack: handleBackToDashboard, setTopics: setTopics, allTopics: topics, companyProfile: companyProfile, user: user }));
+        }
+        return (React.createElement(Dashboard, { topics: topics, onSelectTopic: handleSelectTopic, setTopics: handleSetTopics, companyProfile: companyProfile }));
+    };
+    if (!user) {
+        return (React.createElement("div", { className: "bg-slate-100 min-h-screen font-sans flex flex-col justify-center items-center" },
+            React.createElement("div", { className: "text-center bg-white p-12 rounded-lg shadow-xl" },
+                React.createElement("div", { className: "flex items-center justify-center gap-4 mb-6" },
+                    React.createElement("div", { className: "h-16 w-16 bg-brand-primary flex items-center justify-center rounded-lg" },
+                        React.createElement("span", { className: "text-white font-bold text-4xl" }, companyProfile.name.charAt(0))),
+                    React.createElement("h1", { className: "text-4xl font-bold text-brand-secondary" },
+                        companyProfile.name,
+                        " Audit Conductor")),
+                React.createElement("p", { className: "text-slate-600 mb-8" }, "Please sign in with your Google Workplace account to continue."),
+                React.createElement("div", { ref: signInContainerRef, className: "flex justify-center" }))));
+    }
+    return (React.createElement("div", { className: "bg-slate-100 min-h-screen font-sans" },
+        React.createElement("header", { className: "bg-white shadow-md p-4 flex justify-between items-center" },
+            React.createElement("div", { className: "flex items-center gap-4" },
+                companyProfile.logo ? (React.createElement("img", { src: companyProfile.logo, alt: "Company Logo", className: "h-12 w-auto object-contain" })) : (React.createElement("div", { className: "h-12 w-12 bg-brand-primary flex items-center justify-center rounded-lg" },
+                    React.createElement("span", { className: "text-white font-bold text-2xl" }, companyProfile.name.charAt(0)))),
+                React.createElement("h1", { className: "text-2xl font-bold text-brand-secondary" },
+                    companyProfile.name,
+                    " Audit Conductor")),
+            React.createElement("div", { className: "flex items-center gap-4" },
+                React.createElement("div", { className: "text-right" },
+                    React.createElement("p", { className: "font-semibold text-brand-secondary" }, user.name),
+                    React.createElement("p", { className: "text-sm text-slate-500" }, user.email)),
+                React.createElement("img", { src: user.picture, alt: "User Profile", className: "h-12 w-12 rounded-full" }),
+                React.createElement("button", { onClick: handleSignOut, className: "bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold py-2 px-4 rounded-lg text-sm transition-colors" }, "Sign Out"))),
+        React.createElement("main", { className: "p-4 sm:p-6 lg:p-8" }, renderContent())));
+};
+
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+    throw new Error("Could not find root element to mount to");
+}
+const root = ReactDOM.createRoot(rootElement);
+root.render(React.createElement(React.StrictMode, null,
+    React.createElement(AuditConductor, null)));
+
+// --- END OF COMPILED CODE ---
+    </script>
+  </body>
+</html>
