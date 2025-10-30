@@ -20,6 +20,15 @@
         }
       }
     </script>
+    <style>
+      html { scroll-behavior: smooth; }
+      .hero-bg {
+        background-color: #f8fafc;
+        background-image:
+          radial-gradient(circle at 1px 1px, #e2e8f0 1px, transparent 0);
+        background-size: 2rem 2rem;
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
@@ -39,6 +48,11 @@ import ReactDOM from 'react-dom/client';
 import { GoogleGenAI, Type } from "@google/genai";
 
 // --- START OF COMPILED CODE ---
+
+// Safeguard against 'process is not defined' error in browser environments.
+if (typeof process === 'undefined') {
+  window.process = { env: {} };
+}
 
 // types.ts
 var AssessmentStatus;
@@ -104,6 +118,15 @@ const ExclamationTriangleIcon = ({ className = 'w-6 h-6' }) => (React.createElem
     React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" })));
 const CheckBadgeIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
     React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" })));
+const LightBulbIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.311a6.01 6.01 0 0 0-3.75 0M3.75 12h16.5c.621 0 1.125-.504 1.125-1.125V6.75c0-.621-.504-1.125-1.125-1.125H3.75c-.621 0-1.125.504-1.125 1.125v4.125c0 .621.504 1.125 1.125 1.125Z" })));
+const ClipboardDocumentCheckIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M10.125 2.25h-4.5c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9M10.125 2.25h.375a9 9 0 0 1 9 9v.375M10.125 2.25A3.375 3.375 0 0 1 13.5 5.625v1.5c0 .621.504 1.125 1.125 1.125h1.5a3.375 3.375 0 0 1 3.375 3.375M9 15l2.25 2.25L15 12" })));
+const FolderOpenIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a2.25 2.25 0 0 1 1.59.659l2.122 2.121c.14.141.331.22.53.22H18A2.25 2.25 0 0 1 20.25 9v.776" })));
+const ChartBarIcon = ({ className = 'w-6 h-6' }) => (React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: className },
+    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" })));
+
 
 // services/geminiService.ts
 const API_KEY = process.env.API_KEY;
@@ -748,6 +771,76 @@ const AuditView = ({ topic, audit, onBack, onUpdateAudit, user }) => {
                     React.createElement("button", { onClick: handleAddRecord, className: "bg-brand-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700" }, "Add Record")))))));
 };
 
+// components/LandingPage.tsx
+const LandingPage = ({ signInContainerRef, companyProfile }) => {
+    const features = [
+        {
+            icon: React.createElement(ClipboardDocumentCheckIcon, { className: "w-8 h-8 text-brand-primary" }),
+            title: "Define Audit Topics & Criteria",
+            description: "Easily create and customize audit topics and specific criteria to match your workplace standards and requirements."
+        },
+        {
+            icon: React.createElement(SparklesIcon, { className: "w-8 h-8 text-brand-primary" }),
+            title: "AI-Powered Suggestions",
+            description: "Leverage Gemini to generate relevant audit criteria, suggest root cause analyses, and recommend corrective actions."
+        },
+        {
+            icon: React.createElement(FolderOpenIcon, { className: "w-8 h-8 text-brand-primary" }),
+            title: "Upload & Manage Evidence",
+            description: "Attach supporting documents and images to each audit record, keeping all your evidence organized and accessible."
+        },
+        {
+            icon: React.createElement(ChartBarIcon, { className: "w-8 h-8 text-brand-primary" }),
+            title: "Comprehensive Summaries",
+            description: "Get a clear overview of audit results with automated summaries, compliance rates, and detailed reporting."
+        }
+    ];
+
+    return (
+        React.createElement("div", { className: "bg-white font-sans" },
+            React.createElement("header", { className: "bg-white/80 backdrop-blur-md sticky top-0 z-40" },
+                React.createElement("div", { className: "container mx-auto px-6 py-4 flex justify-between items-center" },
+                    React.createElement("div", { className: "flex items-center gap-3" },
+                        React.createElement("div", { className: "h-10 w-10 bg-brand-primary flex items-center justify-center rounded-lg" },
+                            React.createElement("span", { className: "text-white font-bold text-2xl" }, companyProfile.name.charAt(0))),
+                        React.createElement("h1", { className: "text-xl font-bold text-brand-secondary" }, companyProfile.name, " Audit Conductor")),
+                    React.createElement("a", { href: "#signin", className: "bg-brand-primary text-white font-semibold py-2 px-4 rounded-lg text-sm hover:bg-blue-700 transition-colors" }, "Sign In"))),
+            React.createElement("main", null,
+                React.createElement("section", { id: "signin", className: "hero-bg" },
+                    React.createElement("div", { className: "container mx-auto px-6 py-24 sm:py-32 text-center" },
+                        React.createElement("h1", { className: "text-4xl sm:text-5xl md:text-6xl font-extrabold text-brand-secondary leading-tight" }, "Streamline Your Workplace Audits with AI"),
+                        React.createElement("p", { className: "mt-6 max-w-2xl mx-auto text-lg text-slate-600" }, "The intelligent, all-in-one platform for conducting internal audits, ensuring compliance, and driving continuous improvement. Get started in seconds."),
+                        React.createElement("div", { className: "mt-8 flex justify-center" },
+                            React.createElement("div", { ref: signInContainerRef }))
+                    )
+                ),
+                React.createElement("section", { id: "features", className: "bg-white" },
+                    React.createElement("div", { className: "container mx-auto px-6 py-20" },
+                        React.createElement("div", { className: "text-center mb-12" },
+                            React.createElement("h2", { className: "text-3xl font-bold text-brand-secondary" }, "A Smarter Way to Audit"),
+                            React.createElement("p", { className: "mt-3 max-w-xl mx-auto text-slate-500" }, "Our platform is packed with features designed to make your auditing process more efficient and effective.")),
+                        React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8" },
+                            features.map((feature, index) => (
+                                React.createElement("div", { key: index, className: "bg-slate-50 p-6 rounded-lg border border-slate-200" },
+                                    React.createElement("div", { className: "bg-blue-100 h-16 w-16 flex items-center justify-center rounded-full mb-4" }, feature.icon),
+                                    React.createElement("h3", { className: "text-lg font-semibold text-brand-secondary mb-2" }, feature.title),
+                                    React.createElement("p", { className: "text-slate-600 text-sm" }, feature.description)
+                                )
+                            ))
+                        )
+                    )
+                )
+            ),
+            React.createElement("footer", { className: "bg-slate-100" },
+                React.createElement("div", { className: "container mx-auto px-6 py-6 text-center text-sm text-slate-500" },
+                    "\u00A9 ", new Date().getFullYear(), " ", companyProfile.name, ". All rights reserved."
+                )
+            )
+        )
+    );
+};
+
+
 // App.tsx
 const AuditConductor = () => {
     const [user, setUser] = useState(null);
@@ -781,15 +874,18 @@ const AuditConductor = () => {
         setUser(null);
     };
     useEffect(() => {
-        if (window.google) {
-            window.google.accounts.id.initialize({
-                client_id: '409975478785-66jqsb68qnr62bvsas6fmcm43n64feid.apps.googleusercontent.com',
-                callback: handleSignIn,
-            });
-            if (signInContainerRef.current) {
+        const interval = setInterval(() => {
+            if (window.google && window.google.accounts && window.google.accounts.id && signInContainerRef.current) {
+                clearInterval(interval);
+                window.google.accounts.id.initialize({
+                    client_id: '409975478785-66jqsb68qnr62bvsas6fmcm43n64feid.apps.googleusercontent.com',
+                    callback: handleSignIn,
+                });
                 window.google.accounts.id.renderButton(signInContainerRef.current, { theme: 'outline', size: 'large', text: 'signin_with', width: '300' });
             }
-        }
+        }, 100);
+
+        return () => clearInterval(interval);
     }, [handleSignIn]);
     const handleSetTopics = useCallback((newTopics) => {
         setTopics(newTopics);
@@ -832,16 +928,7 @@ const AuditConductor = () => {
         return (React.createElement(Dashboard, { topics: topics, onSelectTopic: handleSelectTopic, setTopics: handleSetTopics, companyProfile: companyProfile }));
     };
     if (!user) {
-        return (React.createElement("div", { className: "bg-slate-100 min-h-screen font-sans flex flex-col justify-center items-center" },
-            React.createElement("div", { className: "text-center bg-white p-12 rounded-lg shadow-xl" },
-                React.createElement("div", { className: "flex items-center justify-center gap-4 mb-6" },
-                    React.createElement("div", { className: "h-16 w-16 bg-brand-primary flex items-center justify-center rounded-lg" },
-                        React.createElement("span", { className: "text-white font-bold text-4xl" }, companyProfile.name.charAt(0))),
-                    React.createElement("h1", { className: "text-4xl font-bold text-brand-secondary" },
-                        companyProfile.name,
-                        " Audit Conductor")),
-                React.createElement("p", { className: "text-slate-600 mb-8" }, "Please sign in with your Google Workplace account to continue."),
-                React.createElement("div", { ref: signInContainerRef, className: "flex justify-center" }))));
+        return (React.createElement(LandingPage, { signInContainerRef: signInContainerRef, companyProfile: companyProfile }));
     }
     return (React.createElement("div", { className: "bg-slate-100 min-h-screen font-sans" },
         React.createElement("header", { className: "bg-white shadow-md p-4 flex justify-between items-center" },
